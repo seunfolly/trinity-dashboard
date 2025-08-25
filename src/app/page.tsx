@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, FC, ReactNode } from "react";
+import dynamic from "next/dynamic";
 import {
   LineChart,
   Line,
@@ -31,49 +32,28 @@ import {
 import { clsx, ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+// Import types and the PDF component from their separate files
+import { ReportPDF } from "../components/ReportPDF";
+import {
+  Config,
+  AnalyticsData,
+  TrendData,
+  SectionId,
+} from "../components/types";
 
-type SectionId = "overview" | "mcd" | "rcd" | "monitoring";
+// Dynamically import the PDFDownloadLink to ensure it only runs on the client
+const PDFDownloadLink = dynamic(
+  () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
+  {
+    ssr: false,
+    loading: () => <p>Loading PDF generator...</p>,
+  }
+);
 
-interface Config {
-  mcd: {
-    enabled: boolean;
-    updateFrequency: string;
-    sensitivityCoefficient: number;
-    maxPriceIncrease: number;
-    smoothingFactor: number;
-    minimumSpendThreshold: number;
-  };
-  rcd: {
-    enabled: boolean;
-    maxDiscount: number;
-    spendWeight: number;
-    thresholds: {
-      minimumSpend: number;
-      minimumVisits: number;
-    };
-  };
-}
-
-interface AnalyticsData {
-  currentMCDMultiplier: number;
-  customers: { averageDiscount: number; total: number };
-  revenue: { total: number };
-  equilibriumScore: number;
-  marketing: {
-    byPlatform: { [key: string]: { amount: number } };
-    totalSpend: number;
-  };
-}
-
-interface TrendData {
-  date: string;
-  revenue: number;
-  marketingSpend: number;
-}
-
+// Helper for conditional class names
 const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
-//  Mock Data Calculation 
+// Mock Data Calculation
 const calculateMockAnalytics = (config: Config): AnalyticsData => {
   const baseRevenue = 89543.5;
   const marketingSpend = 31000;
@@ -112,8 +92,7 @@ const calculateMockAnalytics = (config: Config): AnalyticsData => {
   };
 };
 
-// UI Components 
-
+// UI Components
 interface StatCardProps {
   title: string;
   value: string;
@@ -197,6 +176,8 @@ const Page = () => {
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [loading, setLoading] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "">("");
+  const [refreshStatus, setRefreshStatus] = useState<boolean>(false);
+  const [isForcingUpdate, setIsForcingUpdate] = useState<boolean>(false);
   const [config, setConfig] = useState<Config>({
     mcd: {
       enabled: true,
@@ -219,7 +200,6 @@ const Page = () => {
   useEffect(() => {
     fetchAnalytics();
   }, [config]);
-
   useEffect(() => {
     loadCurrentConfig();
     generateTrendData();
@@ -234,6 +214,19 @@ const Page = () => {
         console.error("Failed to parse config from localStorage", error);
       }
     }
+  };
+
+  const handleRefresh = () => {
+    fetchAnalytics();
+    setRefreshStatus(true);
+    setTimeout(() => setRefreshStatus(false), 2000);
+  };
+
+  const handleForceUpdate = async () => {
+    setIsForcingUpdate(true);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    fetchAnalytics();
+    setIsForcingUpdate(false);
   };
 
   const fetchAnalytics = () => {
@@ -269,44 +262,33 @@ const Page = () => {
   };
 
   const updateConfig = (path: string, value: string | number | boolean) => {
-    setConfig((prev) => {
+    setConfig((prev: typeof config) => {
       const keys = path.split(".");
-      const newConfig = JSON.parse(JSON.stringify(prev));
-
-      // Use unknown instead of any, and add type guard
-      let current: unknown = newConfig;
+      const newConfig: typeof config = JSON.parse(JSON.stringify(prev));
+      let current: Record<string, unknown> = newConfig;
       for (let i = 0; i < keys.length - 1; i++) {
-        if (
-          typeof current === "object" &&
-          current !== null &&
-          keys[i] in current
-        ) {
-          // Type assertion is safe here due to the check above
-          current = (current as Record<string, unknown>)[keys[i]];
-        } else {
-          throw new Error(`Invalid config path: ${path}`);
-        }
+        current = current[keys[i]] as Record<string, unknown>;
       }
-      if (
-        typeof current === "object" &&
-        current !== null
-      ) {
-        (current as Record<string, unknown>)[keys[keys.length - 1]] = value;
-      } else {
-        throw new Error(`Invalid config path: ${path}`);
-      }
+      current[keys[keys.length - 1]] = value;
       return newConfig;
     });
   };
 
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444"];
-
   const sidebarItems: { id: SectionId; label: string; icon: LucideIcon }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "mcd", label: "MCD Settings", icon: DollarSign },
     { id: "rcd", label: "RCD Settings", icon: Target },
     { id: "monitoring", label: "Live Monitoring", icon: Activity },
   ];
+
+  const PDFDownloadLink = dynamic(
+    () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
+    {
+      ssr: false,
+      loading: () => <p>Loading PDF generator...</p>,
+    }
+  );
 
   return (
     <>
@@ -316,7 +298,7 @@ const Page = () => {
         input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: #2563EB; border-radius: 9999px; cursor: pointer; border: 3px solid #FFFFFF; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); }
       `}</style>
       <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-        <div className="flex">          
+        <div className="flex">
           <aside className="w-64 bg-white border-r border-slate-200 h-screen sticky top-0 flex flex-col">
             <div className="flex items-center gap-3 px-6 h-16 border-b border-slate-200">
               <Settings className="text-blue-600 h-7 w-7" />
@@ -340,7 +322,6 @@ const Page = () => {
               ))}
             </nav>
           </aside>
-
           <main className="flex-1 p-8">
             <header className="flex justify-between items-center mb-8">
               <div>
@@ -356,33 +337,24 @@ const Page = () => {
               )}
             </header>
 
-
             {activeSection === "overview" && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <StatCard
                     title="MCD Multiplier"
-                    value={`${
-                      analytics?.currentMCDMultiplier?.toFixed(3) || "1.000"
-                    }x`}
+                    value={`${analytics?.currentMCDMultiplier?.toFixed(3) || "1.000"}x`}
                     icon={TrendingUp}
                     color="bg-blue-100 text-blue-600"
                   />
                   <StatCard
                     title="Avg. Discount"
-                    value={`${
-                      analytics?.customers?.averageDiscount?.toFixed(1) || "0.0"
-                    }%`}
+                    value={`${analytics?.customers?.averageDiscount?.toFixed(1) || "0.0"}%`}
                     icon={Percent}
                     color="bg-green-100 text-green-600"
                   />
                   <StatCard
                     title="Total Revenue (30d)"
-                    value={`$${
-                      analytics?.revenue?.total?.toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      }) || "0"
-                    }`}
+                    value={`$${analytics?.revenue?.total?.toLocaleString("en-US", { maximumFractionDigits: 0 }) || "0"}`}
                     icon={CircleDollarSign}
                     color="bg-purple-100 text-purple-600"
                   />
@@ -432,16 +404,21 @@ const Page = () => {
                   </div>
                   <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="text-lg font-semibold mb-4 text-slate-800">
-                      Marketing Spend
+                      Marketing Spend by Platform
                     </h3>
                     <ResponsiveContainer width="100%" height={300}>
                       <PieChart>
                         <Pie
                           data={Object.entries(
                             analytics?.marketing?.byPlatform || {}
-                          ).map(([name, { amount }]) => ({
+                          ).map(([name, value]) => ({
                             name,
-                            value: amount,
+                            value:
+                              typeof value === "object" &&
+                              value !== null &&
+                              "amount" in value
+                                ? (value as { amount: number }).amount
+                                : 0,
                           }))}
                           cx="50%"
                           cy="50%"
@@ -650,7 +627,6 @@ const Page = () => {
                     />
                   </div>
                 </SettingRow>
-
                 <div className="pt-8 border-t border-slate-200">
                   <h3 className="font-medium text-slate-800">
                     Minimum Requirements
@@ -715,26 +691,173 @@ const Page = () => {
             )}
 
             {activeSection === "monitoring" && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 <SectionCard
-                  title="Live System Monitoring"
-                  description="Quick actions and real-time status of the pricing engine."
+                  title="Live System Status"
+                  description="Real-time status of the pricing engine and key algorithm parameters."
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                        <span className="text-sm font-medium text-green-800">
+                          System Active
+                        </span>
+                      </div>
+                      <p className="text-xs text-green-600 mt-1">
+                        All services operational
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium text-blue-800">
+                          MCD Status
+                        </span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        {config.mcd.enabled
+                          ? `Enabled / Updates ${config.mcd.updateFrequency}`
+                          : "Disabled"}
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium text-purple-800">
+                          RCD Status
+                        </span>
+                      </div>
+                      <p className="text-xs text-purple-600 mt-1">
+                        {config.rcd.enabled ? "Enabled" : "Disabled"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-6">
+                    <h3 className="text-base font-semibold text-slate-800 mb-4">
+                      Current Algorithm Values
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">
+                          MCD Parameters
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">
+                              Current Multiplier:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800">
+                              {analytics?.currentMCDMultiplier?.toFixed(4) ||
+                                "1.0000"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Sensitivity:</span>
+                            <span className="font-mono font-medium text-slate-800">
+                              {config.mcd.sensitivityCoefficient}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">
+                              Max Increase:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800">
+                              {(config.mcd.maxPriceIncrease * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">
+                          RCD Parameters
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">
+                              Max Discount:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800">
+                              {config.rcd.maxDiscount}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">
+                              Spend Weight:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800">
+                              {config.rcd.spendWeight}x
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">
+                              Min Spend / Visits:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800">
+                              ${config.rcd.thresholds.minimumSpend} /{" "}
+                              {config.rcd.thresholds.minimumVisits}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </SectionCard>
+                <SectionCard
+                  title="Quick Actions"
+                  description="Manually trigger system events and data exports."
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button
-                      onClick={fetchAnalytics}
+                      onClick={handleRefresh}
+                      disabled={refreshStatus}
+                      className={cn(
+                        "flex items-center justify-center gap-2 text-slate-700 py-3 px-4 rounded-lg font-medium transition-colors",
+                        refreshStatus
+                          ? "bg-green-100 text-green-700"
+                          : "bg-slate-100 hover:bg-slate-200"
+                      )}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-4 w-4",
+                          refreshStatus && "animate-spin"
+                        )}
+                      />
+                      {refreshStatus ? "Refreshed!" : "Refresh Analytics"}
+                    </button>
+                    <PDFDownloadLink
+                      document={
+                        <ReportPDF config={config} analytics={analytics} />
+                      }
+                      fileName={`report-${new Date().toISOString().split("T")[0]}.pdf`}
                       className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 px-4 rounded-lg font-medium transition-colors"
                     >
-                      <RefreshCw className="h-4 w-4" />
-                      Refresh Analytics
-                    </button>
-                    <button className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 px-4 rounded-lg font-medium transition-colors">
-                      <Download className="h-4 w-4" />
-                      Export Report
-                    </button>
-                    <button className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 px-4 rounded-lg font-medium transition-colors">
-                      <Zap className="h-4 w-4" />
-                      Force MCD Update
+                      {({ blob: _blob, url: _url, loading, error: _error }) =>
+                        loading ? (
+                          "Preparing PDF..."
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4" />
+                            Export Report
+                          </>
+                        )
+                      }
+                    </PDFDownloadLink>
+                    <button
+                      onClick={handleForceUpdate}
+                      disabled={isForcingUpdate}
+                      className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-70"
+                    >
+                      <Zap
+                        className={cn(
+                          "h-4 w-4",
+                          isForcingUpdate && "animate-ping"
+                        )}
+                      />
+                      {isForcingUpdate
+                        ? "Forcing Update..."
+                        : "Force MCD Update"}
                     </button>
                   </div>
                 </SectionCard>
