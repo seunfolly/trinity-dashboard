@@ -28,29 +28,21 @@ import {
   Download,
   Zap,
   LucideIcon,
+  HeartPulse,
 } from "lucide-react";
 import { clsx, ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-// Import types and the PDF component from their separate files
+import AedMetricsPanel from "../components/AEDMetrics";
+import AedData from "../components/AEDMetrics";
 import { ReportPDF } from "../components/ReportPDF";
 import {
   Config,
   AnalyticsData,
   TrendData,
   SectionId,
-} from "../components/types";
+} from "../types/types";
 
-// Dynamically import the PDFDownloadLink to ensure it only runs on the client
-const PDFDownloadLink = dynamic(
-  () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
-  {
-    ssr: false,
-    loading: () => <p>Loading PDF generator...</p>,
-  }
-);
-
-// Helper for conditional class names
 const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 // Mock Data Calculation
@@ -176,8 +168,10 @@ const Page = () => {
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [loading, setLoading] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "">("");
-  const [refreshStatus, setRefreshStatus] = useState<boolean>(false);
-  const [isForcingUpdate, setIsForcingUpdate] = useState<boolean>(false);
+  const [refreshStatus, setRefreshStatus] = useState(false);
+  const [isForcingUpdate, setIsForcingUpdate] = useState(false);
+  const [aedData, setAedData] = useState(null);
+
   const [config, setConfig] = useState<Config>({
     mcd: {
       enabled: true,
@@ -264,14 +258,31 @@ const Page = () => {
   const updateConfig = (path: string, value: string | number | boolean) => {
     setConfig((prev: typeof config) => {
       const keys = path.split(".");
-      const newConfig: typeof config = JSON.parse(JSON.stringify(prev));
-      let current: Record<string, unknown> = newConfig;
+ 
+      const newConfig = structuredClone(prev);
+      let current: any = newConfig;
       for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i]] as Record<string, unknown>;
+        if (!(keys[i] in current)) current[keys[i]] = {};
+        current = current[keys[i]];
       }
       current[keys[keys.length - 1]] = value;
       return newConfig;
     });
+  };
+
+  const MOCK_AED_DATA = {
+    mcd: 0.85,
+    rcd: 120,
+    thresholds: {
+      mcd: { normal: 0.7, warning: 0.5, critical: 0.3 },
+      rcd: { normal: 150, warning: 180, critical: 200 },
+    },
+    history: [
+      { date: "Jul 1", mcd: 0.88, rcd: 118 },
+      { date: "Jul 8", mcd: 0.86, rcd: 122 },
+      { date: "Jul 15", mcd: 0.87, rcd: 119 },
+      { date: "Jul 22", mcd: 0.85, rcd: 120 },
+    ],
   };
 
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444"];
@@ -279,6 +290,7 @@ const Page = () => {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "mcd", label: "MCD Settings", icon: DollarSign },
     { id: "rcd", label: "RCD Settings", icon: Target },
+    { id: "aed", label: "AED Monitoring", icon: HeartPulse },
     { id: "monitoring", label: "Live Monitoring", icon: Activity },
   ];
 
@@ -688,6 +700,10 @@ const Page = () => {
                   </button>
                 </div>
               </SectionCard>
+            )}
+
+            {activeSection === "aed" && (
+              <AedMetricsPanel analytics={analytics} config={config} />
             )}
 
             {activeSection === "monitoring" && (
