@@ -1,4 +1,10 @@
-export type SectionId = "overview" | "mcd" | "rcd" | "aed" | "monitoring";
+export type SectionId =
+  | "overview"
+  | "mcd"
+  | "rcd"
+  | "aed"
+  | "monitoring"
+  | "preview";
 export interface Config {
   mcd: {
     enabled: boolean;
