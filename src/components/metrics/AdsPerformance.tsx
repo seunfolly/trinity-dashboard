@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 import React from "react";
 import {
@@ -17,11 +16,7 @@ type AdsData = {
   [month: string]: number | string;
 };
 
-const AdsPerformance = ({
-  adsData,
-}: {
-  adsData: { platform: string; value: number }[];
-}) => {
+const AdsPerformance = ({ adsData }: { adsData: AdsData[] }) => {
   //  dataset (3 months comparison)
   const ads: AdsData[] = [
     { platform: "Facebook", Jan: 400, Feb: 320, Mar: 500 },

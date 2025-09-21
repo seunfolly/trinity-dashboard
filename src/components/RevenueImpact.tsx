@@ -11,7 +11,12 @@ import {
   Cell,
 } from "recharts";
 
-const RevenueImpact = ({ data }: { data: unknown[] }) => (
+interface RevenueData {
+  name: string;
+  value: number;
+}
+
+const RevenueImpact = ({ data }: { data: RevenueData[] }) => (
   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
     <h3 className="text-lg font-semibold text-slate-900 mb-4">
       Revenue Impact Analysis
@@ -42,10 +47,13 @@ const RevenueImpact = ({ data }: { data: unknown[] }) => (
               fill={
                 typeof entry === "object" &&
                 entry !== null &&
-                typeof (entry as { value?: unknown; name?: unknown })?.value === "number" &&
-                typeof (entry as { value?: unknown; name?: unknown })?.name === "string"
+                typeof (entry as { value?: unknown; name?: unknown })?.value ===
+                  "number" &&
+                typeof (entry as { value?: unknown; name?: unknown })?.name ===
+                  "string"
                   ? (entry as { value: number; name: string }).value > 0
-                    ? (entry as { value: number; name: string }).name === "Base Revenue"
+                    ? (entry as { value: number; name: string }).name ===
+                      "Base Revenue"
                       ? "#a8a29e"
                       : "#22c55e"
                     : "#ef4444"

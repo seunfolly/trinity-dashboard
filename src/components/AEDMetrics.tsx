@@ -16,13 +16,12 @@ interface Props {
 const AedMetricsPanel: React.FC<Props> = ({ analytics }) => {
   if (!analytics) return <div>Loading...</div>;
 
-  // Example dummy datasets
   const algorithmPerformanceData = [
-    { date: "2025-09-01", multiplier: 1.2, discount: 15 },
-    { date: "2025-09-05", multiplier: 1.5, discount: 12 },
-    { date: "2025-09-10", multiplier: 1.8, discount: 18 },
-    { date: "2025-09-15", multiplier: 2.0, discount: 20 },
-    { date: "2025-09-20", multiplier: 1.7, discount: 14 },
+    { date: "2024-09-01", multiplier: 1.2, discount: 15 },
+    { date: "2024-09-05", multiplier: 1.5, discount: 12 },
+    { date: "2024-09-10", multiplier: 1.8, discount: 18 },
+    { date: "2024-09-15", multiplier: 2.0, discount: 20 },
+    { date: "2024-09-20", multiplier: 1.7, discount: 14 },
   ];
 
   const systemHealthScore = 87;
@@ -38,7 +37,6 @@ const AedMetricsPanel: React.FC<Props> = ({ analytics }) => {
     { platform: "TikTok", value: 3200 },
     { platform: "Google", value: 2900 },
   ];
-
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">

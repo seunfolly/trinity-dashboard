@@ -1,4 +1,4 @@
-import {  ReactNode } from "react";
+import { ReactNode } from "react";
 import { clsx, ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -31,15 +31,18 @@ interface ToggleSwitchProps {
   onChange: () => void;
 }
 
-export const ToggleSwitch= ({ enabled, onChange }: ToggleSwitchProps) => (
+export const ToggleSwitch = ({ enabled, onChange }: ToggleSwitchProps) => (
   <button
     onClick={onChange}
+    role="switch"
+    aria-checked={enabled}
     className={cn(
       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
       enabled ? "bg-blue-600" : "bg-slate-300"
     )}
   >
     <span
+      aria-hidden="true"
       className={cn(
         "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out",
         enabled ? "translate-x-6" : "translate-x-1"
